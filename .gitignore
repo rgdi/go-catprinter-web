@@ -1,0 +1,67 @@
+# CAT Printer Web - Git Ignore
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+venv/
+ENV/
+env/
+.venv/
+
+# Flask
+instance/
+.webassets-cache
+*.log
+
+# Data files
+data/
+catprinter-data/
+*.json
+*.png
+*.jpg
+*.pdf
+
+# Environment
+.env
+.env.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Go
+*.exe
+*.test
+*.out
+catprinter
+
+# Docker
+.dockerignore
+
+# Node (for Tailwind/Vue CDN - not needed)
+node_modules/

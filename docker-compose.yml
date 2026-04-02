@@ -1,0 +1,55 @@
+# CAT Printer Web Interface - Docker Compose
+# Based on go-catprinter: https://git.boxo.cc/massivebox/go-catprinter
+# License: MIT
+
+version: '3.8'
+
+services:
+  catprinter:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: catprinter-web
+    privileged: true  # Required for Bluetooth access
+    network_mode: host  # Required for Bluetooth BLE access
+    volumes:
+      # Mount catprinter binary and data
+      - ./catprinter-data:/app/catprinter
+      - ./data:/app/data
+    environment:
+      # Printer configuration
+      - CAT_PRINTER_MAC=A1:49:35:A0:C8:79
+      - PRINTER_WORKDIR=/app/catprinter
+      - PING_INTERVAL=150  # 2.5 minutes
+      
+      # Flask configuration
+      - FLASK_PORT=5000
+      - FLASK_ENV=production
+      
+      # Security (change these!)
+      - ENABLE_AUTH=true
+      - ADMIN_USER=admin
+      - ADMIN_PASSWORD=changeme
+      
+      # Data files
+      - DATA_FILE=/app/data/tareas.json
+    ports:
+      - "5000:5000"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:5000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  catprinter-data:
+    driver: local
+  data:
+    driver: local
+
+networks:
+  default:
+    name: catprinter-network
+    driver: bridge

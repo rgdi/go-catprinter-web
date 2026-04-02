@@ -1,42 +1,174 @@
-![A printer which has just printed a Gopher](./demo.jpg)
+# CAT Printer Web Interface
 
-go-catprinter is a driver and CLI application that allows you to use some BLE printers, known as "cat printers", on Linux and MacOS, without needing to use the official app.
+A full-featured web interface for CAT thermal printers with Flask, Vue.js, and Docker support. Based on [go-catprinter](https://git.boxo.cc/massivebox/go-catprinter).
 
-# Documentation
+![CAT Printer](https://img.shields.io/badge/CAT-Thermal-Printer-blue)
+![License: MIT](https://img.shields.io/badge/License-MIT-green)
+![Python 3.11+](https://img.shields.io/badge/Python-3.11+-blue)
 
-## CLI
+## Features
 
-Grab a binary from the [Releases](https://git.massivebox.net/massivebox/go-catprinter/releases) page. Use `./catprinter --help` for help.  
+### Core Features
+- **Keep-Alive System**: Automatically pings the printer every 2.5 minutes to prevent auto shut-off
+- **Auto-Reconnect**: Automatically reconnects when the printer disconnects
+- **Multi-Copy Support**: Print up to 10 copies of any content
+- **Job Queue**: Background processing of print jobs
 
-- Basic example with provided MAC: `./catprinter --mac 41:c2:6f:0f:90:c7 --image ./gopher.png`  
-- Basic example with auto discovery by name: `./catprinter --name X6h --image ./gopher.png` 
+### Printing Options
+- **Task Lists**: Create and print organized task lists with titles and deadlines
+- **Text Notes**: Print free-form text with automatic wrapping
+- **Images**: Print photos with optional rotation (90° increments)
+- **PDF**: Print PDF documents (requires PyMuPDF)
 
-## Driver
+### Security
+- **Password Protection**: Optional Basic Auth for web interface
+- **Configurable via Environment Variables**: Easy deployment configuration
 
-For extensive documentation, please consult the [Go Reference](https://pkg.go.dev/git.massivebox.net/massivebox/go-catprinter). Check the `examples/` directory for examples:
+### Deployment
+- **Docker Compose**: Full containerized deployment
+- **Bluetooth LE Support**: Native BLE support via go-catprinter
 
-- `examples/00-knownMac.go`: Shows how to connect to a printer by its MAC address and print a file
-- `examples/01-unknownMac.go`: Shows how to connect to a printer by its name address and print a file
-- `examples/02-options.go`: Shows how `PrinterOptions` can be used to create a rich printing experience with previews and user interaction
+## Quick Start
 
-# Information
+### Prerequisites
 
-## Printer compatibility
+1. A CAT thermal printer (model supported by go-catprinter)
+2. Python 3.11+ or Docker
+3. Bluetooth adapter
 
-This software should be compatible with printers whose official apps are [iPrint](https://play.google.com/store/apps/details?id=com.frogtosea.iprint&hl=en_US&gl=US), [Tiny Print](https://play.google.com/store/apps/details?id=com.frogtosea.tinyPrint&hl=en_US&gl=US) and similar.  
-Probably more printers work, but it's hard to tell with how fragmented the ecosystem is. Some printers with these apps might not work. The project takes no responsibility as per the LICENSE.
+### Option 1: Docker Compose (Recommended)
 
-The project's main developer uses a X6h (the one in the top of the README). It can be found in AliExpress bundles for around ~€8.
+```bash
+# 1. Clone and configure
+git clone https://github.com/yourusername/go-catprinter-web.git
+cd go-catprinter-web
 
-## Thanks to...
+# 2. Copy environment template
+cp .env.example .env
 
-- [rbaron/catprinter](https://github.com/rbaron/catprinter) and [NaitLee/Cat-Printer](https://github.com/NaitLee/Cat-Printer), for providing most of the printer commands and inspiration for the project
-- Shenzhen Frog To Sea Technology Co.,LTD
-- Everyone who contributed, tested or used this software!
+# 3. Build and run
+docker-compose up --build
 
-## Alternatives
+# 4. Access at http://localhost:5000
+```
 
-- [NaitLee/Cat-Printer](https://github.com/NaitLee/Cat-Printer) - the cat printer central, with a CLI application, a web UI, CUPS/IPP support and an Android app. The code is a bit more cluttered, but it works well.
-- [rbaron/catprinter](https://github.com/rbaron/catprinter) - simple CLI application for cat printers with batteries included, written in Python with code that's easy to understand.
-- [NaitLee/kitty-printer](NaitLee/kitty-printer) - a web app for cat printers which leverages Web Bluetooth
-- [jhbruhn/catprint-rs](jhbruhn/catprint-rs) - a driver for cat printers with a basic CLI utility, written in Rust
+### Option 2: Python Virtual Environment
+
+```bash
+# 1. Install system dependencies
+sudo apt install bluetooth libbluetooth-dev libglib2.0-dev fonts-dejavu-core
+
+# 2. Clone and configure
+git clone https://github.com/yourusername/go-catprinter-web.git
+cd go-catprinter-web
+
+# 3. Create virtual environment
+python3 -m venv venv
+source venv/bin/activate
+
+# 4. Install Python dependencies
+pip install -r requirements.txt
+
+# 5. Copy and configure environment
+cp .env.example .env
+# Edit .env with your settings
+
+# 6. Run
+python app.py
+```
+
+## Configuration
+
+### Environment Variables
+
+| Variable | Description | Default |
+|----------|------------|---------|
+| `CAT_PRINTER_MAC` | MAC address of your printer | `A1:49:35:A0:C8:79` |
+| `PRINTER_WORKDIR` | Working directory for print jobs | `/app/catprinter` |
+| `PING_INTERVAL` | Keep-alive ping interval (seconds) | `150` |
+| `FLASK_PORT` | Port for web server | `5000` |
+| `ENABLE_AUTH` | Enable password protection | `false` |
+| `ADMIN_USER` | Admin username | `admin` |
+| `ADMIN_PASSWORD` | Admin password | `changeme` |
+
+### Building the catprinter CLI
+
+If not using Docker, build the Go CLI:
+
+```bash
+cd go-catprinter
+go build -o catprinter ./cli
+# This creates the 'catprinter' binary used by the Flask app
+```
+
+## API Endpoints
+
+### Public
+- `GET /api/health` - Health check
+
+### Protected (with authentication)
+- `GET /` - Web interface
+- `GET /api/tareas` - Get task list
+- `POST /api/tareas` - Save task list
+- `POST /api/imprimir/tareas` - Print task list
+- `POST /api/imprimir/texto` - Print text
+- `POST /api/imprimir/imagen` - Print image
+- `POST /api/imprimir/pdf` - Print PDF
+- `GET /api/status` - Get printer status
+- `POST /api/keepalive/start` - Start keep-alive
+- `POST /api/keepalive/stop` - Stop keep-alive
+- `POST /api/reconnect` - Force reconnection
+
+## Supported Printers
+
+This project uses [go-catprinter](https://git.boxo.cc/massivebox/go-catprinter) which supports various CAT thermal printers. Check their documentation for the complete list.
+
+Known compatible printers:
+- CAT PRT-01WE
+- Various unnamed CAT thermal printers
+
+## Project Structure
+
+```
+go-catprinter-web/
+├── app.py                 # Flask API server
+├── templates/
+│   └── index.html       # Vue.js web interface
+├── Dockerfile           # Docker image definition
+├── docker-compose.yml   # Docker Compose setup
+├── requirements.txt    # Python dependencies
+├── .env.example     # Environment template
+└── README.md        # This file
+```
+
+## Troubleshooting
+
+### Printer Not Found
+- Make sure Bluetooth is enabled: `sudo systemctl enable bluetooth`
+- Check printer is powered on and in range
+- Verify MAC address is correct
+
+### Connection Errors
+- The printer may have turned off - use the keep-alive feature to prevent this
+- Try manually reconnecting: `POST /api/reconnect`
+
+### Print Quality Issues
+- Try with and without `--lowerQuality` flag
+- Adjust rotation for image orientation
+
+## Credits
+
+- Original Go library: [go-catprinter](https://git.boxo.cc/massivebox/go-catprinter)
+- License: [MIT](LICENSE)
+- Vue.js: [MIT](https://github.com/vuejs/core)
+- TailwindCSS: [MIT](https://github.com/tailwindlabs/tailwindcss)
+
+## License
+
+This project is MIT licensed. See [LICENSE](LICENSE) for details.
+
+---
+
+<p align="center">
+Made with ❤️ for CAT thermal printers
+</p>

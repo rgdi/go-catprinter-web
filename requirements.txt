@@ -1,0 +1,20 @@
+# CAT Printer Web Interface - Python Dependencies
+# Based on go-catprinter: https://git.boxo.cc/massivebox/go-catprinter
+# License: MIT
+
+# Flask web framework
+Flask>=2.3.0
+Werkzeug>=2.3.0
+
+# Authentication (optional but recommended for security)
+Flask-HTTPAuth>=4.8.0
+bcrypt>=4.0.0
+
+# Image processing
+Pillow>=10.0.0
+
+# PDF support (optional)
+PyMuPDF>=1.23.0
+
+# Environment variables
+python-dotenv>=1.0.0

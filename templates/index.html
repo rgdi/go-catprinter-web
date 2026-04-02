@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CAT Printer - Impresora Multiúsos</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        
+        * {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+        }
+        
+        .gradient-bg {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        
+        .card-shadow {
+            box-shadow: 0 10px 40px -10px rgba(0,0,0,0.15);
+        }
+        
+        .hover-lift {
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        
+        .hover-lift:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 15px 50px -10px rgba(0,0,0,0.2);
+        }
+        
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+        
+        .status-dot.connected {
+            background-color: #10b981;
+            box-shadow: 0 0 10px #10b981;
+        }
+        
+        .status-dot.disconnected {
+            background-color: #ef4444;
+            box-shadow: 0 0 10px #ef4444;
+        }
+        
+        .status-dot.pulse {
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .tab-active {
+            border-bottom-width: 3px;
+            font-weight: 600;
+        }
+        
+        .progress-ring {
+            transform: rotate(-90deg);
+        }
+        
+        .checkbox-custom {
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border: 2px solid #d1d5db;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .checkbox-custom:checked {
+            background-color: #6366f1;
+            border-color: #6366f1;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+            transition: all 0.2s ease;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 10px 30px -5px rgba(99, 102, 241, 0.4);
+        }
+        
+        .btn-primary:active {
+            transform: translateY(0);
+        }
+        
+        .btn-success {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        }
+        
+        .btn-success:hover {
+            box-shadow: 0 10px 30px -5px rgba(16, 185, 129, 0.4);
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    {% raw %}
+    <div id="app" class="min-h-screen py-4 md:py-8 px-2 md:px-4">
+        
+        <!-- Header -->
+        <div class="max-w-xl mx-auto mb-6">
+            <div class="gradient-bg rounded-2xl p-6 card-shadow text-white">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h1 class="text-2xl md:text-3xl font-bold">CAT Printer</h1>
+                        <p class="text-indigo-200 text-sm mt-1">Impresora Térmica Multiúlos</p>
+                    </div>
+                    <div class="text-right">
+                        <div class="flex items-center gap-2">
+                            <span class="status-dot" :class="{'connected': printerConnected, 'disconnected': !printerConnected, 'pulse': printerConnected}"></span>
+                            <span class="text-sm font-medium">{{ printerConnected ? 'Conectada' : 'Desconectada' }}</span>
+                        </div>
+                        <p class="text-xs text-indigo-200 mt-1">{{ macAddress }}</p>
+                    </div>
+                </div>
+                
+                <!-- Status Bar -->
+                <div v-if="statusData" class="mt-4 pt-4 border-t border-white/20">
+                    <div class="grid grid-cols-3 gap-2 text-center">
+                        <div>
+                            <p class="text-xs text-indigo-200">Último Ping</p>
+                            <p class="text-sm font-medium">{{ statusData.keep_alive?.last_ping || 'N/A' }}</p>
+                        </div>
+                        <div>
+                            <p class="text-xs text-indigo-200">Jobs Activos</p>
+                            <p class="text-sm font-medium">{{ activeJobs }}</p>
+                        </div>
+                        <div>
+                            <p class="text-xs text-indigo-200">Keep-Alive</p>
+                            <p class="text-sm font-medium">{{ statusData.keep_alive?.running ? 'Activo' : 'Detenido' }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Card -->
+        <div class="max-w-xl mx-auto bg-white rounded-2xl card-shadow overflow-hidden border">
+            
+            <!-- Tabs -->
+            <div class="flex border-b bg-gray-50">
+                <button @click="tab = 'tareas'" :class="{'tab-active bg-white text-indigo-600 border-indigo-600': tab === 'tareas'}" class="flex-1 py-4 text-center hover:bg-gray-100 transition text-gray-600 border-b-3 border-transparent">📝 Tareas</button>
+                <button @click="tab = 'texto'" :class="{'tab-active bg-white text-indigo-600 border-indigo-600': tab === 'texto'}" class="flex-1 py-4 text-center hover:bg-gray-100 transition text-gray-600 border-b-3 border-transparent">✍️ Nota</button>
+                <button @click="tab = 'foto'" :class="{'tab-active bg-white text-indigo-600 border-indigo-600': tab === 'foto'}" class="flex-1 py-4 text-center hover:bg-gray-100 transition text-gray-600 border-b-3 border-transparent">🖼️ Foto</button>
+                <button @click="tab = 'pdf'" :class="{'tab-active bg-white text-indigo-600 border-indigo-600': tab === 'pdf'}" class="flex-1 py-4 text-center hover:bg-gray-100 transition text-gray-600 border-b-3 border-transparent">📄 PDF</button>
+            </div>
+
+            <div class="p-4 md:p-6">
+                
+                <!-- TASKS TAB -->
+                <div v-show="tab === 'tareas'" class="space-y-4">
+                    <input v-model="tituloLista" type="text" placeholder="Título de la lista..." 
+                        class="w-full text-xl font-bold p-2 border-b-2 border-transparent hover:border-gray-200 focus:border-indigo-600 outline-none text-center text-indigo-700 bg-transparent transition">
+                    
+                    <!-- Add Task Form -->
+                    <div class="flex flex-col md:flex-row gap-2 p-3 bg-indigo-50 rounded-xl border border-indigo-100">
+                        <input v-model="nuevaTarea" type="text" placeholder="Nueva tarea..." 
+                            class="flex-1 border border-indigo-200 p-3 rounded-lg focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 outline-none" 
+                            @keyup.enter="agregarTarea">
+                        <input v-model="nuevaFecha" type="date" 
+                            class="border border-indigo-200 p-3 rounded-lg outline-none text-sm">
+                        <button @click="agregarTarea" 
+                            class="btn-primary text-white px-6 py-3 rounded-lg font-medium hover-lift">
+                            ➕ Añadir
+                        </button>
+                    </div>
+
+                    <!-- Task List -->
+                    <div class="space-y-2 max-h-80 overflow-y-auto pr-2">
+                        <div v-for="(tarea, index) in tareasOrdenadas" :key="index" 
+                            class="flex items-center justify-between p-4 bg-white border rounded-xl shadow-sm hover:shadow-md transition hover-lift">
+                            <div class="flex items-center gap-3 overflow-hidden">
+                                <input type="checkbox" v-model="tarea.seleccionada" 
+                                    class="checkbox-custom w-5 h-5">
+                                <span :class="{'line-through text-gray-400': tarea.completada}" 
+                                    class="text-base truncate">{{ tarea.nombre }}</span>
+                            </div>
+                            <div class="flex items-center gap-2 shrink-0">
+                                <span v-if="tarea.fecha" 
+                                    class="text-xs font-semibold text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full border">
+                                    🗓️ {{ tarea.fecha }}
+                                </span>
+                                <button @click="eliminarTarea(index)" 
+                                    class="text-red-400 hover:text-red-600 text-2xl font-bold p-2 leading-none hover:bg-red-50 rounded-lg transition">
+                                    ✕
+                                </button>
+                            </div>
+                        </div>
+                        <div v-if="tareas.length === 0" class="text-center text-gray-400 py-8 bg-gray-50 rounded-xl">
+                            <span class="text-4xl block mb-2">📝</span>
+                            <span class="text-sm">Lista vacía - Añade tu primera tarea</span>
+                        </div>
+                    </div>
+
+                    <!-- Controls -->
+                    <div class="flex items-center justify-between p-4 bg-gray-50 rounded-xl border mt-4">
+                        <button @click="seleccionarTodas" 
+                            class="text-indigo-600 hover:text-indigo-800 font-medium text-sm">
+                            {{ todasSeleccionadas ? 'Deseleccionar Todas' : 'Seleccionar Todas' }}
+                        </button>
+                        
+                        <div class="flex items-center gap-3">
+                            <label class="font-medium text-gray-700 text-sm">Copias:</label>
+                            <div class="flex items-center border rounded-lg bg-white">
+                                <button @click="copiasTareas > 1 ? copiasTareas-- : null" 
+                                    class="px-4 py-2 bg-gray-100 hover:bg-gray-200 border-r rounded-l-lg transition">−</button>
+                                <span class="px-4 py-2 font-bold min-w-[3rem] text-center">{{ copiasTareas }}</span>
+                                <button @click="copiasTareas < 10 ? copiasTareas++ : null" 
+                                    class="px-4 py-2 bg-gray-100 hover:bg-gray-200 border-l rounded-r-lg transition">+</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Print Button -->
+                    <button @click="imprimirTareas" 
+                        class="w-full btn-success text-white px-6 py-4 rounded-xl font-bold hover-lift flex items-center justify-center gap-2">
+                        <span>🖨️ Imprimir Tareas</span>
+                        <span v-if="copiasTareas > 1" class="bg-white/20 px-2 py-1 rounded text-sm">{{ copiasTareas }} copias</span>
+                    </button>
+                </div>
+
+                <!-- TEXT TAB -->
+                <div v-show="tab === 'texto'" class="space-y-4">
+                    <textarea v-model="textoLibre" rows="8" placeholder="Escribe tu nota aquí..." 
+                        class="w-full border p-4 rounded-xl mb-3 focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 outline-none resize-none bg-gray-50"></textarea>
+                    
+                    <div class="flex items-center justify-between p-4 bg-gray-50 rounded-xl border">
+                        <label class="font-medium text-gray-700 text-sm">Copias:</label>
+                        <div class="flex items-center border rounded-lg bg-white">
+                            <button @click="copiasTexto > 1 ? copiasTexto-- : null" 
+                                class="px-4 py-2 bg-gray-100 hover:bg-gray-200 border-r rounded-l-lg transition">−</button>
+                            <span class="px-4 py-2 font-bold min-w-[3rem] text-center">{{ copiasTexto }}</span>
+                            <button @click="copiasTexto < 10 ? copiasTexto++ : null" 
+                                class="px-4 py-2 bg-gray-100 hover:bg-gray-200 border-l rounded-r-lg transition">+</button>
+                        </div>
+                    </div>
+
+                    <button @click="imprimirTexto" 
+                        class="w-full btn-success text-white px-6 py-4 rounded-xl font-bold hover-lift flex items-center justify-center gap-2">
+                        <span>🖨️ Imprimir Nota</span>
+                    </button>
+                </div>
+
+                <!-- PHOTO TAB -->
+                <div v-show="tab === 'foto'" class="space-y-4">
+                    <!-- Preview -->
+                    <div v-if="previewUrl" class="bg-gray-50 p-4 rounded-xl border overflow-hidden flex flex-col items-center">
+                        <div class="p-4 flex items-center justify-center h-64 w-full">
+                            <img :src="previewUrl" class="max-h-full max-w-full shadow-lg border-4 border-white transition-transform duration-300" 
+                                :style="{ transform: `rotate(${rotacionFoto}deg)` }">
+                        </div>
+                        <button @click="rotarFoto" 
+                            class="btn-primary text-white px-4 py-2 rounded-lg font-medium hover-lift flex items-center gap-2">
+                            ↻ Rotar 90°
+                        </button>
+                    </div>
+                    
+                    <!-- Upload -->
+                    <div class="border-2 border-dashed border-gray-300 rounded-xl p-8 hover:bg-gray-50 hover:border-indigo-400 transition cursor-pointer relative bg-gray-50">
+                        <input type="file" @change="seleccionarFoto" accept="image/*" 
+                            class="absolute inset-0 w-full h-full opacity-0 cursor-pointer">
+                        <div class="text-gray-500 text-center">
+                            <span class="text-5xl block mb-2">📸</span>
+                            <span v-if="!foto" class="font-medium">Toca para seleccionar imagen</span>
+                            <span v-else class="text-indigo-600 font-bold">{{ foto.name }}</span>
+                        </div>
+                    </div>
+                    
+                    <div v-if="foto" class="flex items-center justify-between p-4 bg-gray-50 rounded-xl border">
+                        <label class="font-medium text-gray-700 text-sm">Copias:</label>
+                        <div class="flex items-center border rounded-lg bg-white">
+                            <button @click="copiasFoto > 1 ? copiasFoto-- : null" 
+                                class="px-4 py-2 bg-gray-100 hover:bg-gray-200 border-r rounded-l-lg transition">−</button>
+                            <span class="px-4 py-2 font-bold min-w-[3rem] text-center">{{ copiasFoto }}</span>
+                            <button @click="copiasFoto < 10 ? copiasFoto++ : null" 
+                                class="px-4 py-2 bg-gray-100 hover:bg-gray-200 border-l rounded-r-lg transition">+</button>
+                        </div>
+                    </div>
+                    
+                    <button @click="imprimirFoto" :disabled="!foto" 
+                        :class="{'opacity-50 cursor-not-allowed': !foto, 'btn-success hover-lift': foto}" 
+                        class="w-full text-white px-6 py-4 rounded-xl font-bold flex items-center justify-center gap-2">
+                        <span>🖨️ Imprimir Imagen</span>
+                    </button>
+                </div>
+
+                <!-- PDF TAB -->
+                <div v-show="tab === 'pdf'" class="space-y-4">
+                    <div v-if="pdfPreview" class="bg-gray-50 p-4 rounded-xl border overflow-hidden flex flex-col items-center">
+                        <div class="text-center">
+                            <span class="text-5xl block mb-2">📄</span>
+                            <p class="text-lg font-medium text-indigo-600">{{ pdfName }}</p>
+                            <p class="text-sm text-gray-500">{{ pdfPageCount }} página(s)</p>
+                        </div>
+                    </div>
+                    
+                    <div class="border-2 border-dashed border-gray-300 rounded-xl p-8 hover:bg-gray-50 hover:border-indigo-400 transition cursor-pointer relative bg-gray-50">
+                        <input type="file" @change="seleccionarPdf" accept="application/pdf" 
+                            class="absolute inset-0 w-full h-full opacity-0 cursor-pointer">
+                        <div class="text-gray-500 text-center">
+                            <span class="text-5xl block mb-2">📄</span>
+                            <span v-if="!pdfFile" class="font-medium">Toca para seleccionar PDF</span>
+                            <span v-else class="text-indigo-600 font-bold">{{ pdfFile.name }}</span>
+                        </div>
+                    </div>
+                    
+                    <div v-if="pdfFile" class="flex items-center justify-between p-4 bg-gray-50 rounded-xl border">
+                        <label class="font-medium text-gray-700 text-sm">Copias:</label>
+                        <div class="flex items-center border rounded-lg bg-white">
+                            <button @click="copiasPdf > 1 ? copiasPdf-- : null" 
+                                class="px-4 py-2 bg-gray-100 hover:bg-gray-200 border-r rounded-l-lg transition">−</button>
+                            <span class="px-4 py-2 font-bold min-w-[3rem] text-center">{{ copiasPdf }}</span>
+                            <button @click="copiasPdf < 10 ? copiasPdf++ : null" 
+                                class="px-4 py-2 bg-gray-100 hover:bg-gray-200 border-l rounded-r-lg transition">+</button>
+                        </div>
+                    </div>
+                    
+                    <button @click="imprimirPdf" :disabled="!pdfFile" 
+                        :class="{'opacity-50 cursor-not-allowed': !pdfFile, 'btn-success hover-lift': pdfFile}" 
+                        class="w-full text-white px-6 py-4 rounded-xl font-bold flex items-center justify-center gap-2">
+                        <span>🖨️ Imprimir PDF</span>
+                    </button>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="max-w-xl mx-auto mt-6 text-center text-gray-400 text-sm">
+            <p>CAT Printer Web Interface • Basado en <a href="https://git.boxo.cc/massivebox/go-catprinter" target="_blank" class="text-indigo-500 hover:underline">go-catprinter</a></p>
+        </div>
+
+    </div>
+    {% endraw %}
+
+    <script>
+        const { createApp, ref, computed, onMounted, watch } = Vue;
+        
+        createApp({
+            setup() {
+                // State
+                const tab = ref('tareas');
+                const printerConnected = ref(true);
+                const macAddress = ref(window.CAT_PRINTER_MAC || 'A1:49:35:A0:C8:79');
+                const statusData = ref(null);
+                
+                // Tasks state
+                const tituloLista = ref('MIS TAREAS');
+                const tareas = ref([]);
+                const nuevaTarea = ref('');
+                const nuevaFecha = ref('');
+                const copiasTareas = ref(1);
+                
+                // Text state
+                const textoLibre = ref('');
+                const copiasTexto = ref(1);
+                
+                // Photo state
+                const foto = ref(null);
+                const previewUrl = ref(null);
+                const copiasFoto = ref(1);
+                const rotacionFoto = ref(0);
+                
+                // PDF state
+                const pdfFile = ref(null);
+                const pdfPreview = ref(false);
+                const pdfName = ref('');
+                const pdfPageCount = ref(0);
+                const copiasPdf = ref(1);
+                
+                // Computed
+                const tareasOrdenadas = computed(() => {
+                    return [...tareas.value].sort((a, b) => {
+                        if (!a.fecha) return 1;
+                        if (!b.fecha) return -1;
+                        return new Date(a.fecha) - new Date(b.fecha);
+                    });
+                });
+                
+                const todasSeleccionadas = computed(() => {
+                    return tareas.value.length > 0 && tareas.value.every(t => t.seleccionada);
+                });
+                
+                const activeJobs = computed(() => {
+                    if (!statusData.value || !statusData.value.jobs) return 0;
+                    return statusData.value.jobs.filter(j => j.status === 'pending').length;
+                });
+                
+                // Methods
+                const cargarTareas = async () => {
+                    try {
+                        const res = await fetch('/api/tareas');
+                        if (res.ok) {
+                            tareas.value = await res.json();
+                        }
+                    } catch (e) {
+                        console.error('Error cargando tareas:', e);
+                    }
+                };
+                
+                const guardarTareas = async () => {
+                    try {
+                        await fetch('/api/tareas', {
+                            method: 'POST',
+                            headers: {'Content-Type': 'application/json'},
+                            body: JSON.stringify(tareas.value)
+                        });
+                    } catch (e) {
+                        console.error('Error guardando tareas:', e);
+                    }
+                };
+                
+                const cargarStatus = async () => {
+                    try {
+                        const res = await fetch('/api/status');
+                        if (res.ok) {
+                            statusData.value = await res.json();
+                            macAddress.value = statusData.value.mac;
+                            printerConnected.value = statusData.value.connection?.connected || true;
+                        }
+                    } catch (e) {
+                        console.error('Error carga status:', e);
+                    }
+                };
+                
+                const agregarTarea = () => {
+                    if (nuevaTarea.value.trim() === '') return;
+                    tareas.value.push({
+                        nombre: nuevaTarea.value,
+                        fecha: nuevaFecha.value,
+                        seleccionada: true,
+                        completada: false
+                    });
+                    nuevaTarea.value = '';
+                    nuevaFecha.value = '';
+                    guardarTareas();
+                };
+                
+                const eliminarTarea = (index) => {
+                    tareas.value.splice(index, 1);
+                    guardarTareas();
+                };
+                
+                const seleccionarTodas = () => {
+                    const estado = !todasSeleccionadas.value;
+                    tareas.value.forEach(t => t.seleccionada = estado);
+                    guardarTareas();
+                };
+                
+                const imprimirTareas = () => {
+                    const seleccionadas = tareas.value.filter(t => t.seleccionada);
+                    if (seleccionadas.length === 0) {
+                        alert('Selecciona al menos una tarea');
+                        return;
+                    }
+                    
+                    fetch('/api/imprimir/tareas', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({
+                            titulo: tituloLista.value,
+                            tareas: seleccionadas,
+                            copias: copiasTareas.value
+                        })
+                    }).then(() => {
+                        alert('¡Trabajo enviado a impresión!');
+                    }).catch(e => {
+                        alert('Error: ' + e.message);
+                    });
+                };
+                
+                const imprimirTexto = () => {
+                    if (!textoLibre.value.trim()) return;
+                    
+                    fetch('/api/imprimir/texto', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({
+                            texto: textoLibre.value,
+                            copias: copiasTexto.value
+                        })
+                    }).then(() => {
+                        alert('¡Texto enviado!');
+                        textoLibre.value = '';
+                    }).catch(e => {
+                        alert('Error: ' + e.message);
+                    });
+                };
+                
+                const seleccionarFoto = (event) => {
+                    const file = event.target.files[0];
+                    if (!file) return;
+                    foto.value = file;
+                    copiasFoto.value = 1;
+                    rotacionFoto.value = 0;
+                    previewUrl.value = URL.createObjectURL(file);
+                };
+                
+                const rotarFoto = () => {
+                    rotacionFoto.value = (rotacionFoto.value + 90) % 360;
+                };
+                
+                const imprimirFoto = () => {
+                    if (!foto.value) return;
+                    
+                    const formData = new FormData();
+                    formData.append('file', foto.value);
+                    formData.append('copies', copiasFoto.value);
+                    formData.append('rotation', rotacionFoto.value);
+                    
+                    alert(`Enviando ${copiasFoto.value} copia(s)...`);
+                    
+                    fetch('/api/imprimir/imagen', {
+                        method: 'POST',
+                        body: formData
+                    }).then(() => {
+                        alert('¡Imagen enviada!');
+                        foto.value = null;
+                        previewUrl.value = null;
+                        copiasFoto.value = 1;
+                        rotacionFoto.value = 0;
+                    }).catch(e => {
+                        alert('Error: ' + e.message);
+                    });
+                };
+                
+                const seleccionarPdf = (event) => {
+                    const file = event.target.files[0];
+                    if (!file) return;
+                    pdfFile.value = file;
+                    pdfName.value = file.name;
+                    pdfPreview.value = true;
+                    copiasPdf.value = 1;
+                    pdfPageCount.value = 1; // Note: actual count would need server-side analysis
+                };
+                
+                const imprimirPdf = () => {
+                    if (!pdfFile.value) return;
+                    
+                    const formData = new FormData();
+                    formData.append('file', pdfFile.value);
+                    formData.append('copies', copiasPdf.value);
+                    
+                    alert(`Enviando PDF...`);
+                    
+                    fetch('/api/imprimir/pdf', {
+                        method: 'POST',
+                        body: formData
+                    }).then(() => {
+                        alert('¡PDF enviado!');
+                        pdfFile.value = null;
+                        pdfPreview.value = false;
+                        copiasPdf.value = 1;
+                    }).catch(e => {
+                        alert('Error: ' + e.message);
+                    });
+                };
+                
+                // Lifecycle
+                onMounted(() => {
+                    cargarTareas();
+                    cargarStatus();
+                    
+                    // Refresh status every 30 seconds
+                    setInterval(cargarStatus, 30000);
+                });
+                
+                return {
+                    tab,
+                    printerConnected,
+                    macAddress,
+                    statusData,
+                    activeJobs,
+                    tituloLista,
+                    tareas,
+                    nuevaTarea,
+                    nuevaFecha,
+                    copiasTareas,
+                    textoLibre,
+                    copiasTexto,
+                    foto,
+                    previewUrl,
+                    copiasFoto,
+                    rotacionFoto,
+                    pdfFile,
+                    pdfPreview,
+                    pdfName,
+                    pdfPageCount,
+                    copiasPdf,
+                    tareasOrdenadas,
+                    todasSeleccionadas,
+                    agregarTarea,
+                    eliminarTarea,
+                    seleccionarTodas,
+                    imprimirTareas,
+                    imprimirTexto,
+                    seleccionarFoto,
+                    rotarFoto,
+                    imprimirFoto,
+                    seleccionarPdf,
+                    imprimirPdf
+                };
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>
